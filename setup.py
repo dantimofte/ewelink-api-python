@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 # Runtime dependencies. See requirements.txt for development dependencies.
 DEPENDENCIES = [
     "aiohttp==3.9.1",
@@ -10,7 +10,7 @@ setup(
     name="ewelink",
     version=VERSION,
     description="Ewelink API",
-    url="https://github.com/AceExpert/ewelink-api-python",
+    url="https://github.com/dantimofte/ewelink-api-python",
     license="",
     packages=find_packages(),
     install_requires=DEPENDENCIES,
