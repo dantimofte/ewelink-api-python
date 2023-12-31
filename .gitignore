@@ -130,3 +130,5 @@ dmypy.json
 coverage/
 .vscode/
 test.py
+
+.idea
