@@ -4,12 +4,14 @@ from typing import AnyStr, TypedDict
 
 from .models import ClientUser
 from .exceptions import DeviceOffline
-from .constants import Constants as constants
+from .constants import Constants
 from .http import HttpClient
+
 
 class DeviceInterface:
     id: str
     online: bool
+
 
 Response = TypedDict(
     "Response", 
@@ -21,6 +23,7 @@ Response = TypedDict(
         'params': dict[str, list[dict[str, AnyStr]] | AnyStr]
     }
 )
+
 
 class WebSocketClient:
     http: HttpClient
@@ -55,7 +58,7 @@ class WebSocketClient:
             "at": self.http.token,
             "userAgent": "app",
             "apikey": self.user.api_key,
-            "appid": constants.APP_ID,
+            "appid": Constants.APP_ID,
             "nonce": "".join(random.choice("abcdefghijklmnopqrstuvwxyz1234567890") for _ in range(8)),
             "sequence": str(time.time() * 1000)
         })
@@ -79,12 +82,15 @@ class WebSocketClient:
             "sequence": str(time.time() * 1000),
             "params": kwargs
         })
-        result = await asyncio.wait_for(fut, timeout = 10)
+        result = await asyncio.wait_for(fut, timeout=10)
         return result
 
     async def poll_event(self):
         while True:
-            received = await self.ws.receive_str()
+            try:
+                received = await self.ws.receive_str()
+            except TypeError as e:
+                break
             if received == 'pong':
                 continue
             msg: dict[str, dict[str, bool | AnyStr] | AnyStr] = json.loads(received)

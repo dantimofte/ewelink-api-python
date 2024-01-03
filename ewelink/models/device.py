@@ -9,6 +9,8 @@ from ..state import Connection
 from ..exceptions import DeviceOffline
 from ..utils import generics
 from ..customtypes import Subscriptable
+from ..ws import DeviceInterface
+
 
 @dataclass
 class Brand:
@@ -20,12 +22,14 @@ class Network:
     ssid: str | None
     sta_mac: str | None
 
+
 @dataclass
 class Pulse:
     state: Power
     width: int
 
-class Device:
+
+class Device(DeviceInterface):
     _state: Connection | None = None
     online_time: datetime | None
     offline_time: datetime | None

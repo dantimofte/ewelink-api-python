@@ -1,8 +1,10 @@
 from typing import ClassVar
+import os
+
 
 class Constants:
-    APP_ID: ClassVar[str] = 'oeVkj2lYFGnJu5XUtWisfW4utiN4u9Mq'
-    APP_SECRET: ClassVar[bytes] = b'6Nz4n0xA8s8qdxQf2GqurZj2Fs55FUvM'
+    APP_ID: ClassVar[str] = os.getenv("EWELINK_API_KEY", 'oeVkj2lYFGnJu5XUtWisfW4utiN4u9Mq')
+    APP_SECRET: ClassVar[bytes] = os.getenv("EWELINK_API_SECRET", b'6Nz4n0xA8s8qdxQf2GqurZj2Fs55FUvM')
     errors: ClassVar[dict[int, str]] =\
     {
         400: 'Parameter error',
