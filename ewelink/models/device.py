@@ -35,6 +35,7 @@ class Device(DeviceInterface):
     offline_time: datetime | None
 
     def __init__(self, data: dict[str, str | int | Any], state: Connection | None) -> None:
+        self.raw_data = data
         self.apikey: str | None = data.get('apikey', None)
         self.id: str = data.get('deviceid', '0')
         self.brand: Brand = Brand(
@@ -82,9 +83,9 @@ class Device(DeviceInterface):
                 else:
                     _switch.update(_state)
             params = dict(
-                startup = startup.name if startup else self.startup.name,
-                pulse = pulse.name if isinstance(pulse, Power) else pulse.state.name if pulse else self.pulse.state.name,
-                pulseWidth = pulse_width or self.pulse.width
+                startup=startup.name if startup else self.startup.name,
+                pulse=pulse.name if isinstance(pulse, Power) else pulse.state.name if pulse else self.pulse.state.name,
+                pulseWidth=pulse_width or self.pulse.width
             )
             params.update(_switch)
             await self._state.ws.update_device_status(self.id, **params)

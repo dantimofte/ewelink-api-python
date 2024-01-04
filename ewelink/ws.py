@@ -1,6 +1,6 @@
 import aiohttp, time, random, asyncio, json
 
-from typing import AnyStr, TypedDict
+from typing import AnyStr, TypedDict, List, Callable, Union, Coroutine
 
 from .models import ClientUser
 from .exceptions import DeviceOffline
@@ -14,7 +14,7 @@ class DeviceInterface:
 
 
 Response = TypedDict(
-    "Response", 
+    "Response",
     {
         'error': int,
         'deviceid': str,
@@ -32,16 +32,14 @@ class WebSocketClient:
     session: aiohttp.ClientSession
     user: ClientUser
     devices: dict[str, DeviceInterface]
+    listeners: List[Union[Coroutine, Callable[[str], None]]] = []
     _ping_task: asyncio.Task[None] | None = None
     _poll_task: asyncio.Task[None] | None = None
-    _futures: dict[str, list[asyncio.Future[Response]]] = {
-        'update': []
-    }
 
     def __init__(self, http: HttpClient, user: ClientUser) -> None:
         self.http = http
         self.user = user
-        self.devices = []
+        self.devices = {}
         self.heartbeat = 90
         self.session = http.session
         self.ws = None
@@ -65,15 +63,13 @@ class WebSocketClient:
         response: dict[str, str | int | dict[str, int]] = await self.ws.receive_json()
         if not response.get('error'):
             if config := response.get('config', {}):
-                if type(config) == dict:
+                if isinstance(config, dict):
                     if hb_interval := response['config'].get('hbInterval', ''):
-                        if type(hb_interval) == int: self.heartbeat = hb_interval + 7
+                        if isinstance(hb_interval, int): self.heartbeat = hb_interval + 7
         self._ping_task = self.http.loop.create_task(self.ping_hb())
         self._poll_task = self.http.loop.create_task(self.poll_event())
 
-    async def update_device_status(self, deviceid: str, **kwargs: list[dict[str, AnyStr]] | AnyStr) -> Response:
-        fut: asyncio.Future[Response] = self.http.loop.create_future()
-        self._futures['update'].append(fut)
+    async def update_device_status(self, deviceid: str, **kwargs: list[dict[str, AnyStr]] | AnyStr) -> None:
         await self.ws.send_json({
             "action": "update",
             "deviceid": deviceid,
@@ -82,35 +78,20 @@ class WebSocketClient:
             "sequence": str(time.time() * 1000),
             "params": kwargs
         })
-        result = await asyncio.wait_for(fut, timeout=10)
-        return result
 
     async def poll_event(self):
         while True:
             try:
-                received = await self.ws.receive_str()
+                msg = await self.ws.receive_str()
             except TypeError as e:
                 break
-            if received == 'pong':
+            if msg == 'pong':
                 continue
-            msg: dict[str, dict[str, bool | AnyStr] | AnyStr] = json.loads(received)
-            if action := msg.get('action', None):
-                match action:
-                    case "sysmsg":
-                        if self.devices:
-                            if device := self.devices.get(msg['deviceid'], None):
-                                device.online = msg['params']['online']
-            if 'error' in msg and 'params' not in msg:
-                match msg['error']:
-                    case 0:
-                        self._futures['update'][0].set_result(msg)
-                    case 503:
-                        self._futures['update'][0].set_exception(DeviceOffline("Device is offline."))
-                self._futures['update'].pop(0)
-            elif 'error' in msg and 'params' in msg:
-                if not msg['error']:
-                    self._futures['query'][0].set_result(msg)
-                    self._futures['query'].pop(0)
+            for listener in self.listeners:
+                if asyncio.iscoroutinefunction(listener):
+                    await listener(msg)
+                else:
+                    listener(msg)
 
     async def ping_hb(self):
         while True:

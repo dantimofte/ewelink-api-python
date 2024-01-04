@@ -12,8 +12,6 @@ V = TypeVar("V")
 ClientT = TypeVar("ClientT", bound="Client")
 GatewayT = TypeVar("GatewayT", bound="Gateway")
 
-Decorator = Callable[[Callable[[T], Coroutine[None, Any, V]]], V]
-
 
 @dataclass
 class Gateway:
@@ -33,7 +31,7 @@ class Client:
     user: ClientUser | None
     loop: asyncio.AbstractEventLoop
 
-    def __init__(self, password: str, email: str | None = None, phone: str | int | None = None, *, region: str = 'us'):
+    def __init__(self, password: str, email: str | None = None, phone: str | int | None = None, *, region: str = 'eu'):
         super().__init__()
         self.http = HttpClient(password=password, email=email, phone=phone, region=region)
         self.ws = None
@@ -41,9 +39,9 @@ class Client:
 
     async def login(self):
         self.loop = asyncio.get_event_loop()
-        await self.http._create_session(loop=self.loop)
-        self.user = ClientUser(data = await self.http.login(), http=self.http)
-        self.ws = WebSocketClient(http = self.http, user = self.user)
+        await self.http.create_session(loop=self.loop)
+        self.user = ClientUser(data=await self.http.login(), http=self.http)
+        self.ws = WebSocketClient(http=self.http, user = self.user)
         self.gateway = Gateway.from_dict(await self.http.get_gateway())
         await self.ws.create_websocket(self.gateway.domain, self.gateway.port)
         self._devices = {
@@ -66,33 +64,6 @@ class Client:
     def region(self):
         return Region[self.http.region.upper()]
 
-    @classmethod
-    def setup(cls: Type[ClientT], password: str, email: str | None = None, phone: str | int | None = None, *, region: str = 'us') -> Decorator[ClientT, V]:
-        client: Client = cls(password, email, phone, region=region)
-        def decorator(f: Callable[[Client], Coroutine[None, Any, V]]) -> V:
-            result = asyncio.get_event_loop().run_until_complete(f(client))
-            if not client.http.session.closed:
-                asyncio.get_event_loop().run_until_complete(client.http.session.close())
-            if client.ws:
-                if not client.ws.closed:
-                    asyncio.get_event_loop().run_until_complete(client.ws.close())
-            return result
-        return decorator
-
     async def dispose(self):
         await self.ws.close()
         await self.http.session.close()
-
-
-def login(password: str, email: str | None = None, phone: str | int | None = None, *, region: str = 'us') -> Decorator[Client, V]:
-    client: Client = Client(password, email, phone, region = region)
-    asyncio.get_event_loop().run_until_complete(client.login())
-    def decorator(f: Callable[[Client], Coroutine[None, Any, V]]) -> V:
-        result = asyncio.get_event_loop().run_until_complete(f(client))
-        if not client.http.session.closed:
-            asyncio.get_event_loop().run_until_complete(client.http.session.close())
-        if client.ws:
-            if not client.ws.closed:
-                asyncio.get_event_loop().run_until_complete(client.ws.close())
-        return result
-    return decorator

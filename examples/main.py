@@ -1,9 +1,12 @@
 import asyncio
 import ewelink
+from dotenv import load_dotenv
+import os
 
 
 async def main():
-    client: ewelink.Client = ewelink.Client("", "", region="eu")
+    load_dotenv(".env")
+    client: ewelink.Client = ewelink.Client(os.getenv("EWELINK_PASSWORD"), os.getenv("EWELINK_USERNAME"), region="eu")
     await client.login()
     print(f"client version {client.region}")
     print(f"client user info: {client.user.info}")
@@ -20,10 +23,10 @@ async def main():
     print("Brand Name: ", device.brand.name, "Logo URL: ", device.brand.logo.url)
     print("Device online? ", device.online)
 
-    try:
-        await device.on()
-    except Exception as e:
-        print("Device is offline!")
+    # try:
+    #     await device.on()
+    # except Exception as e:
+    #     print("Device is offline!")
     await client.http.session.close()
 
 if __name__ == '__main__':
